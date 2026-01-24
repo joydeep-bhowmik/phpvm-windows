@@ -416,7 +416,7 @@ switch ($command) {
                 $suggestedVersion = Get-ClosestPHPVersion -RequestedVersion $version
                 if ($suggestedVersion) {
                     Write-Host "Did you mean: PHP $suggestedVersion ?"
-                    Write-Host "Run: phpenv install $suggestedVersion"
+                    Write-Host "Run: pvm install $suggestedVersion"
                 }
                 else {
                     Write-Host "No PHP versions found. Check available versions at:"
