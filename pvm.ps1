@@ -444,7 +444,7 @@ switch ($command) {
         }
     
         if (-not $downloadSuccess) {
-            Write-Host "`nPHP version $version not found!" -ForegroundColor Red
+            Write-Host "`nPHP exact version ($version) not found!" -ForegroundColor Red
             
             # Check if user requested just a major version (like "8", "7", "5")
             #$isMajorVersion = ($version -match '^\d+$')
