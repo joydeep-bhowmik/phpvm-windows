@@ -447,35 +447,11 @@ switch ($command) {
             Write-Host "`nPHP version $version not found!" -ForegroundColor Red
             
             # Check if user requested just a major version (like "8", "7", "5")
-            $isMajorVersion = ($version -match '^\d+$')
+            #$isMajorVersion = ($version -match '^\d+$')
             
-            if ($isMajorVersion) {
-                # User requested something like "pvm install 8" or "pvm install 7"
-                Show-AvailableReleases -RequestedVersion $version
-            }
-            else {
-                # Try to find closest match
-                $allVersions = Get-AvailablePHPVersions
-                if ($allVersions.Count -gt 0) {
-                    $suggestedVersion = Find-ClosestVersion -RequestedVersion $version -AvailableVersions $allVersions
-                    
-                    Write-Host "`nDid you mean: PHP $suggestedVersion ?" -ForegroundColor Yellow
-                    Write-Host "Run: pvm install $suggestedVersion" -ForegroundColor Green
-                    
-                    # Also show releases for the same major version
-                    $requestedMajor = $version -replace '^(\d+).*$', '$1'
-                    $suggestedMajor = $suggestedVersion -replace '^(\d+).*$', '$1'
-                    
-                    if ($requestedMajor -ne $suggestedMajor) {
-                        Write-Host "`nAlso showing PHP $requestedMajor releases:" -ForegroundColor Cyan
-                        Show-AvailableReleases -RequestedVersion $requestedMajor
-                    }
-                }
-                else {
-                    Write-Host "No PHP versions found. Check available versions at:"
-                    Write-Host "https://windows.php.net/download/"
-                }
-            }
+            # User requested something like "pvm install 8" or "pvm install 7.6.3"
+            Show-AvailableReleases -RequestedVersion $version
+
             exit 1
         }
 
