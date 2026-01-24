@@ -43,7 +43,9 @@ function Enable-Extension {
         [string]$ext,
         [string]$version = "current"
     )
-
+    if (-not $version) {
+        $version = "current"
+    }
     # Handle 'current' keyword
     if ($version -eq "current") {
         $currentVersion = Get-CurrentVersion
@@ -55,7 +57,11 @@ function Enable-Extension {
         Write-Host "Targeting current active version: $version"
     }
 
-    $iniPath = "C:\phpvm\versions\$version\php.ini"
+    $iniPath = "C:\phpvm\versions\$version\php.ini";
+
+    if ($version -eq "current") {
+        $iniPath = "C:\phpvm\versions\$version\php.ini";
+    }
     
     if (-not (Test-Path $iniPath)) {
         Write-Host "PHP version $version not found or php.ini doesn't exist"
@@ -90,6 +96,10 @@ function Disable-Extension {
         [string]$version = "current"
     )
 
+    if (-not $version) {
+        $version = "current"
+    }
+    
     # Handle 'current' keyword
     if ($version -eq "current") {
         $currentVersion = Get-CurrentVersion
@@ -101,7 +111,11 @@ function Disable-Extension {
         Write-Host "Targeting current active version: $version"
     }
 
-    $iniPath = "C:\phpvm\versions\$version\php.ini"
+    $iniPath = "C:\phpvm\versions\$version\php.ini";
+
+    if ($version -eq "current") {
+        $iniPath = "C:\phpvm\versions\$version\php.ini";
+    }
     
     if (-not (Test-Path $iniPath)) {
         Write-Host "PHP version $version not found or php.ini doesn't exist"
