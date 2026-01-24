@@ -39,6 +39,205 @@ function Get-CurrentVersion {
     return $null
 }
 
+
+
+function Get-ClosestPHPVersion {
+    param(
+        [string]$RequestedVersion
+    )
+    
+    try {
+        Write-Host "`nFetching available PHP versions from windows.php.net..."
+        
+        # Get versions from both main releases and archives
+        $allVersions = @()
+        
+        # Get from main releases
+        Write-Host "Checking main releases..." -ForegroundColor Cyan
+        $mainVersions = Get-VersionsFromReleasesPage -Url "https://windows.php.net/downloads/releases/"
+        
+        # Get from archives
+        Write-Host "Checking archive releases..." -ForegroundColor Cyan
+        $archiveVersions = Get-VersionsFromReleasesPage -Url "https://windows.php.net/downloads/releases/archives/"
+        
+        # Combine and deduplicate
+        $allVersions = @($mainVersions + $archiveVersions) | Sort-Object -Unique -Descending
+        
+        if ($allVersions.Count -eq 0) {
+            Write-Host "Could not retrieve version list."
+            return $null
+        }
+        
+        # Display recent versions
+        Write-Host "`nRecent PHP versions (last 20):" -ForegroundColor Yellow
+        $allVersions | Select-Object -First 20 | ForEach-Object { 
+            Write-Host "  $_" 
+        }
+        
+        if ($allVersions.Count -gt 20) {
+            Write-Host "  ... and $($allVersions.Count - 20) more total versions" -ForegroundColor DarkGray
+        }
+        
+        # Find closest match
+        $closestVersion = Find-ClosestVersion -RequestedVersion $RequestedVersion -AvailableVersions $allVersions
+        
+        return $closestVersion
+        
+    }
+    catch {
+        Write-Host "Error fetching version list: $_" -ForegroundColor Red
+        return $null
+    }
+}
+
+function Get-VersionsFromReleasesPage {
+    param(
+        [string]$Url
+    )
+    
+    $versions = @()
+    
+    try {
+        $page = Invoke-WebRequest -Uri $Url -UseBasicParsing -ErrorAction Stop
+        
+        # Extract ALL version patterns - PHP uses different VC versions over time
+        $versionPatterns = @(
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-vs17-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-vs16-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-vs15-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-Win32-vs17-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-Win32-vs16-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-Win32-vs15-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)\.zip'  # Generic fallback
+        )
+        
+        foreach ($pattern in $versionPatterns) {
+            $matches = [regex]::Matches($page.Content, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+            foreach ($match in $matches) {
+                $versions += $match.Groups[1].Value
+            }
+        }
+        
+        return $versions | Sort-Object -Unique -Descending
+        
+    }
+    catch {
+        Write-Host "  Warning: Could not access $Url" -ForegroundColor DarkYellow
+        return @()
+    }
+}
+
+function Find-ClosestVersion {
+    param(
+        [string]$RequestedVersion,
+        [string[]]$AvailableVersions
+    )
+    
+    # Try to parse the requested version
+    $requestedParts = $RequestedVersion -split '\.'
+    
+    $bestMatch = $null
+    $bestScore = [double]::MaxValue
+    
+    foreach ($availableVersion in $AvailableVersions) {
+        $availableParts = $availableVersion -split '\.'
+        
+        # Calculate a weighted distance score
+        $score = 0
+        
+        # Compare major, minor, and patch versions with different weights
+        for ($i = 0; $i -lt [Math]::Max($requestedParts.Count, $availableParts.Count); $i++) {
+            $requestedPart = if ($i -lt $requestedParts.Count -and [int]::TryParse($requestedParts[$i], [ref]$null)) { 
+                [int]$requestedParts[$i] 
+            }
+            else { 0 }
+            
+            $availablePart = if ($i -lt $availableParts.Count -and [int]::TryParse($availableParts[$i], [ref]$null)) { 
+                [int]$availableParts[$i] 
+            }
+            else { 0 }
+            
+            # Weight: major=1000, minor=100, patch=1
+            $weight = switch ($i) {
+                0 { 1000 }  # Major version - most important
+                1 { 100 }   # Minor version
+                2 { 1 }     # Patch version
+                default { 0.1 }
+            }
+            
+            $score += [Math]::Abs($requestedPart - $availablePart) * $weight
+        }
+        
+        # Bonus: Exact match gets best score
+        if ($availableVersion -eq $RequestedVersion) {
+            $score = -1
+        }
+        
+        # Bonus: Prefer same major version
+        if ($requestedParts.Count -gt 0 -and $availableParts.Count -gt 0) {
+            if ([int]$requestedParts[0] -eq [int]$availableParts[0]) {
+                $score -= 50  # Bonus for same major version
+            }
+        }
+        
+        # Update best match if this is closer
+        if ($score -lt $bestScore) {
+            $bestScore = $score
+            $bestMatch = $availableVersion
+        }
+    }
+    
+    return $bestMatch
+}
+
+function Get-VersionsFromURL {
+    param(
+        [string]$Url
+    )
+    
+    try {
+        $page = Invoke-WebRequest -Uri $Url -UseBasicParsing -ErrorAction Stop
+        
+        # Extract version numbers from zip file links
+        # Looking for patterns like: php-8.3.1-nts-Win32-vs16-x64.zip
+        # or: php-8.3.1-nts-Win32-vs16-x64.zip
+        $versionPattern = 'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-vs16-x64\.zip'
+        $matches = [regex]::Matches($page.Content, $versionPattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        
+        $versions = @()
+        foreach ($match in $matches) {
+            $versions += $match.Groups[1].Value
+        }
+        
+        return $versions | Sort-Object -Unique -Descending
+        
+    }
+    catch {
+        Write-Host "  Warning: Could not access $Url" -ForegroundColor DarkYellow
+        return @()
+    }
+}
+
+
+function Normalize-VersionString {
+    param(
+        [string]$Version
+    )
+    
+    # Remove RC/alpha/beta suffixes for comparison
+    # e.g., "8.3.0-RC1" -> "8.3.0"
+    $normalized = $Version -replace '-(RC\d+|alpha\d+|beta\d+).*$', ''
+    
+    # Ensure we have at least 3 parts (major.minor.patch)
+    $parts = $normalized -split '\.'
+    
+    while ($parts.Count -lt 3) {
+        $parts += "0"
+    }
+    
+    return $parts -join '.'
+}
+
 function Enable-Extension {
     param(
         [string]$ext,
@@ -91,6 +290,9 @@ function Enable-Extension {
     Write-Host "Enabled $ext for PHP $version"
 }
 
+
+
+    
 function Disable-Extension {
     param(
         [string]$ext,
@@ -158,20 +360,70 @@ switch ($command) {
         }
 
         $zip = "$env:TEMP\php-$version.zip"
-
-        # Prefer NTS (best for CLI)
-        $url = "https://windows.php.net/downloads/releases/php-$version-nts-Win32-vs16-x64.zip"
-
-        Write-Host "Downloading PHP $version (NTS)..."
-
-        try {
-            Invoke-WebRequest -Uri $url -OutFile $zip
+    
+        # Try multiple URL patterns since PHP uses different VC versions
+        $urlPatterns = @(
+            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-vs17-x64.zip",
+            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-vs16-x64.zip",
+            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-vs15-x64.zip"
+        )
+    
+        Write-Host "Downloading PHP $version..."
+    
+        $downloadSuccess = $false
+        foreach ($url in $urlPatterns) {
+            try {
+                Write-Host "Trying: $url" -ForegroundColor DarkGray
+                Invoke-WebRequest -Uri $url -OutFile $zip
+                $downloadSuccess = $true
+                Write-Host "Download successful!" -ForegroundColor Green
+                break
+            }
+            catch {
+                # Continue to next pattern
+                continue
+            }
         }
-        catch {
+    
+        if (-not $downloadSuccess) {
             Write-Host "Release not found in main releases, trying archive..."
-
-            $url = "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-vs16-x64.zip"
-            Invoke-WebRequest -Uri $url -OutFile $zip
+        
+            # Try archive with multiple patterns
+            $urlPatterns = @(
+                "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-vs17-x64.zip",
+                "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-vs16-x64.zip",
+                "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-vs15-x64.zip"
+            )
+        
+            $archiveSuccess = $false
+            foreach ($url in $urlPatterns) {
+                try {
+                    Write-Host "Trying archive: $url" -ForegroundColor DarkGray
+                    Invoke-WebRequest -Uri $url -OutFile $zip
+                    $archiveSuccess = $true
+                    Write-Host "Download successful from archive!" -ForegroundColor Green
+                    break
+                }
+                catch {
+                    continue
+                }
+            }
+        
+            if (-not $archiveSuccess) {
+                Write-Host "`nPHP version $version not found!"
+            
+                # Get available versions and suggest closest match
+                $suggestedVersion = Get-ClosestPHPVersion -RequestedVersion $version
+                if ($suggestedVersion) {
+                    Write-Host "Did you mean: PHP $suggestedVersion ?"
+                    Write-Host "Run: phpenv install $suggestedVersion"
+                }
+                else {
+                    Write-Host "No PHP versions found. Check available versions at:"
+                    Write-Host "https://windows.php.net/download/"
+                }
+                exit 1
+            }
         }
 
         Write-Host "Extracting..."
@@ -181,11 +433,9 @@ switch ($command) {
         # Create php.ini if not present
         $iniPath = "$target\php.ini"
         if (-not (Test-Path $iniPath)) {
-
-            # prefer production template
             $prodIni = "$target\php.ini-production"
             $devIni = "$target\php.ini-development"
-
+        
             if (Test-Path $prodIni) {
                 Copy-Item $prodIni $iniPath
             }
@@ -196,7 +446,9 @@ switch ($command) {
 
         Write-Host "Installed PHP $version"
     }
-    
+
+
+
     "uninstall" {
         $version = $arg1
         if (-not $version) { Write-Host "Version required"; exit }
