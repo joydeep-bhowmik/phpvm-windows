@@ -474,6 +474,7 @@ switch ($command) {
         }
 
         Write-Host "Installed PHP $version"
+        & $MyInvocation.MyCommand.Path list
     }
 
     "uninstall" {
