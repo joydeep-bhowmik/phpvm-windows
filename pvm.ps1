@@ -496,6 +496,7 @@ switch ($command) {
 
         Remove-Item -Recurse -Force $target
         Write-Host "Uninstalled PHP $version"
+        & $MyInvocation.MyCommand.Path list
     }
 
     "use" {
