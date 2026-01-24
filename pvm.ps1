@@ -19,6 +19,7 @@ PHP Version Manager (Windows)
 
 Commands:
   pvm install <version>
+  pvm uninstall <version>
   pvm use <version>
   pvm list
   pvm current
