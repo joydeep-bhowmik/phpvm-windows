@@ -302,6 +302,10 @@ pvm install 8.3.2
 pvm ext enable curl 8.3.2
 pvm ext enable mbstring 8.3.2
 
+# Enable or disable extensions for current version
+pvm ext enable curl
+pvm ext disable mbstring 
+
 # Switch to new version
 pvm use 8.3.2
 
