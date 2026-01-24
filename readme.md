@@ -28,7 +28,7 @@ A simple PHP Version Manager for Windows (global), allowing you to:
 ### 1. Clone this repository
 
 ```powershell
-git clone https://github.com/<your-username>/phpvm-windows.git
+git clone https://github.com/joydeep-bhowmik/phpvm-windows.git
 ```
 
 ### 2. Move files to `C:\phpvm`
@@ -103,17 +103,27 @@ pvm current
 ### Enable a PHP extension
 
 ```powershell
-pvm ext enable 8.2.15 curl
-pvm ext enable 8.2.15 mbstring
-pvm ext enable 8.2.15 openssl
-pvm ext enable 8.2.15 pdo_mysql
+# Enable extension on current active version (recommended)
+pvm ext enable curl
+pvm ext enable mbstring
+pvm ext enable openssl
+pvm ext enable pdo_mysql
+
+# Enable extension on specific version
+pvm ext enable curl 8.2.15
+pvm ext enable mbstring 8.3.2
 ```
 
 ### Disable a PHP extension
 
 ```powershell
-pvm ext disable 8.2.15 xdebug
-pvm ext disable 8.2.15 opcache
+# Disable extension on current active version
+pvm ext disable xdebug
+pvm ext disable opcache
+
+# Disable extension on specific version
+pvm ext disable xdebug 8.2.15
+pvm ext disable opcache 8.3.2
 ```
 
 ---
@@ -136,6 +146,10 @@ Here are some commonly used extensions you can enable:
 | `intl` | Internationalization | Locale-aware operations |
 | `bz2` | Bzip2 | Bzip2 compression |
 | `fileinfo` | File Information | MIME type detection |
+| `redis` | Redis | Redis cache/database |
+| `mongodb` | MongoDB | MongoDB database |
+| `imagick` | ImageMagick | Advanced image processing |
+| `sqlsrv` | SQL Server | Microsoft SQL Server |
 
 ---
 
@@ -146,7 +160,7 @@ PVM modifies the `php.ini` file for the specified PHP version:
 - **Enable**: Uncomments or adds `extension=extname` in php.ini
 - **Disable**: Comments out `extension=extname` in php.ini
 
-Example: Enabling `curl` for PHP 8.2.15:
+Example: Enabling `curl` for current PHP version:
 
 ```ini
 ; Before:
@@ -155,6 +169,8 @@ Example: Enabling `curl` for PHP 8.2.15:
 ; After:
 extension=curl
 ```
+
+> **Note**: The version parameter is optional. If omitted, PVM targets the currently active PHP version.
 
 ---
 
@@ -184,6 +200,13 @@ Most PHP extensions require corresponding DLL files in the `ext` directory. PVM 
 
 - Check available extensions: `dir C:\phpvm\versions\8.2.15\ext\*.dll`
 - If an extension DLL is missing, it won't load even if enabled in php.ini
+- Some extensions may need additional DLL dependencies in the main PHP directory
+
+### Version Parameter is Optional
+
+When using `pvm ext enable` or `pvm ext disable`, the version parameter is optional:
+- Without version: Targets current active PHP version
+- With version: Targets specific PHP version (e.g., `8.2.15`)
 
 ---
 
@@ -202,7 +225,7 @@ C:\phpvm\php
 ```
 
 * `pvm use` updates the link using a Windows junction.
-* `pvm ext` modifies the php.ini file for the specified version.
+* `pvm ext` modifies the php.ini file for the specified version (defaults to current).
 
 ---
 
@@ -221,6 +244,7 @@ C:\phpvm\php
 
 * Make sure `C:\phpvm\php` is **above** other PHP paths in PATH
 * If Herd is installed, disable its PHP shims
+* Run `pvm current` to verify active version
 
 ### Extension not loading
 
@@ -228,6 +252,8 @@ C:\phpvm\php
 2. Verify php.ini: Check that `extension=<extension>` is uncommented
 3. Restart terminal after enabling/disabling extensions
 4. Check PHP error log: `C:\phpvm\versions\<version>\error_log`
+5. Run `php -m` to see loaded extensions
+6. Some extensions require thread-safe (TS) versions, ensure you're using correct build
 
 ### Permission errors
 
@@ -235,6 +261,17 @@ Run PowerShell as administrator for installation only, or:
 ```powershell
 # For current user only
 New-Item -ItemType Directory -Force -Path C:\phpvm
+```
+
+### "No active PHP version" error
+
+When using `pvm ext enable <extension>` without specifying a version:
+```powershell
+# Set an active version first
+pvm use 8.2.15
+
+# Then enable extensions
+pvm ext enable curl
 ```
 
 ---
@@ -248,11 +285,11 @@ pvm install 8.2.15
 # Switch to it
 pvm use 8.2.15
 
-# Enable common extensions
-pvm ext enable 8.2.15 curl
-pvm ext enable 8.2.15 mbstring
-pvm ext enable 8.2.15 openssl
-pvm ext enable 8.2.15 pdo_mysql
+# Enable common extensions on current version
+pvm ext enable curl
+pvm ext enable mbstring
+pvm ext enable openssl
+pvm ext enable pdo_mysql
 
 # Verify installation
 php -v
@@ -260,8 +297,30 @@ php -m | findstr "curl mbstring"
 
 # Install another version
 pvm install 8.3.2
+
+# Enable extensions for specific version (while keeping 8.2.15 active)
+pvm ext enable curl 8.3.2
+pvm ext enable mbstring 8.3.2
+
+# Switch to new version
 pvm use 8.3.2
-pvm ext enable 8.3.2 curl
+
+# Disable an extension
+pvm ext disable xdebug
+
+# List all installed versions
+pvm list
+```
+
+---
+
+## 🔄 Updating
+
+To update PVM to the latest version:
+
+```powershell
+cd C:\phpvm
+git pull origin main
 ```
 
 ---
@@ -288,4 +347,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 If you find this tool useful, please give it a star on GitHub!
 
-https://github.com/joydeep-bhowmik/phpvm-windows
+[![GitHub stars](https://img.shields.io/github/stars/joydeep-bhowmik/phpvm-windows.svg?style=social)](https://github.com/joydeep-bhowmik/phpvm-windows)
+

@@ -22,17 +22,38 @@ Commands:
   pvm use <version>
   pvm list
   pvm current
-  pvm ext enable <version> <extension>
-  pvm ext disable <version> <extension>
+  pvm ext enable <extension> [version]     (version defaults to current)
+  pvm ext disable <extension> [version]    (version defaults to current)
 "@
     exit
 }
 
+function Get-CurrentVersion {
+    if (Test-Path $ACTIVE) {
+        $linkTarget = (Get-Item $ACTIVE).Target
+        if ($linkTarget) {
+            return Split-Path $linkTarget -Leaf
+        }
+    }
+    return $null
+}
+
 function Enable-Extension {
     param(
-        [string]$version,
-        [string]$ext
+        [string]$ext,
+        [string]$version = "current"
     )
+
+    # Handle 'current' keyword
+    if ($version -eq "current") {
+        $currentVersion = Get-CurrentVersion
+        if (-not $currentVersion) {
+            Write-Host "No active PHP version. Use 'pvm use <version>' first."
+            return
+        }
+        $version = $currentVersion
+        Write-Host "Targeting current active version: $version"
+    }
 
     $iniPath = "C:\phpvm\versions\$version\php.ini"
     
@@ -65,9 +86,20 @@ function Enable-Extension {
 
 function Disable-Extension {
     param(
-        [string]$version,
-        [string]$ext
+        [string]$ext,
+        [string]$version = "current"
     )
+
+    # Handle 'current' keyword
+    if ($version -eq "current") {
+        $currentVersion = Get-CurrentVersion
+        if (-not $currentVersion) {
+            Write-Host "No active PHP version. Use 'pvm use <version>' first."
+            return
+        }
+        $version = $currentVersion
+        Write-Host "Targeting current active version: $version"
+    }
 
     $iniPath = "C:\phpvm\versions\$version\php.ini"
     
@@ -210,26 +242,34 @@ switch ($command) {
 
     "ext" {
         $action = $arg1
-        $version = $arg2
-        $ext = $arg3
+        $ext = $arg2
+        $version = $arg3
         
         if ($action -eq "enable") {
-            if (-not $version -or -not $ext) {
-                Write-Host "Usage: pvm ext enable <version> <extension>"
+            if (-not $ext) {
+                Write-Host "Usage: pvm ext enable <extension> [version]"
+                Write-Host "       Version is optional and defaults to current active version"
                 exit
             }
-            Enable-Extension -version $version -ext $ext
+            Enable-Extension -ext $ext -version $version
         }
         elseif ($action -eq "disable") {
-            if (-not $version -or -not $ext) {
-                Write-Host "Usage: pvm ext disable <version> <extension>"
+            if (-not $ext) {
+                Write-Host "Usage: pvm ext disable <extension> [version]"
+                Write-Host "       Version is optional and defaults to current active version"
                 exit
             }
-            Disable-Extension -version $version -ext $ext
+            Disable-Extension -ext $ext -version $version
         }
         else {
-            Write-Host "Usage: pvm ext enable <version> <extension>"
-            Write-Host "       pvm ext disable <version> <extension>"
+            Write-Host "Usage: pvm ext enable <extension> [version]"
+            Write-Host "       pvm ext disable <extension> [version]"
+            Write-Host ""
+            Write-Host "Examples:"
+            Write-Host "  pvm ext enable curl              # Enable for current version"
+            Write-Host "  pvm ext disable xdebug           # Disable for current version"
+            Write-Host "  pvm ext enable mbstring 8.2.15   # Enable for specific version"
+            Write-Host "  pvm ext disable opcache 8.3.2    # Disable for specific version"
         }
     }
 
