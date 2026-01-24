@@ -39,25 +39,23 @@ function Get-CurrentVersion {
     return $null
 }
 
-
-
-function Get-ClosestPHPVersion {
+function Get-AvailablePHPVersions {
     param(
-        [string]$RequestedVersion
+        [string]$MajorVersionFilter = $null
     )
     
     try {
-        Write-Host "`nFetching available PHP versions from windows.php.net..."
+        Write-Host "`nFetching available PHP versions from windows.php.net..." -ForegroundColor Cyan
         
         # Get versions from both main releases and archives
         $allVersions = @()
         
         # Get from main releases
-        Write-Host "Checking main releases..." -ForegroundColor Cyan
+        Write-Host "Checking main releases..." -ForegroundColor Gray
         $mainVersions = Get-VersionsFromReleasesPage -Url "https://windows.php.net/downloads/releases/"
         
         # Get from archives
-        Write-Host "Checking archive releases..." -ForegroundColor Cyan
+        Write-Host "Checking archive releases..." -ForegroundColor Gray
         $archiveVersions = Get-VersionsFromReleasesPage -Url "https://windows.php.net/downloads/releases/archives/"
         
         # Combine and deduplicate
@@ -65,28 +63,24 @@ function Get-ClosestPHPVersion {
         
         if ($allVersions.Count -eq 0) {
             Write-Host "Could not retrieve version list."
-            return $null
+            return @()
         }
         
-        # Display recent versions
-        Write-Host "`nRecent PHP versions (last 20):" -ForegroundColor Yellow
-        $allVersions | Select-Object -First 20 | ForEach-Object { 
-            Write-Host "  $_" 
+        Write-Host "Found $($allVersions.Count) total PHP versions" -ForegroundColor Green
+        
+        # Filter by major version if specified
+        if ($MajorVersionFilter) {
+            $filteredVersions = $allVersions | Where-Object { $_ -like "$MajorVersionFilter.*" }
+            Write-Host "Filtered to $($filteredVersions.Count) PHP $MajorVersionFilter versions" -ForegroundColor Green
+            return $filteredVersions
         }
         
-        if ($allVersions.Count -gt 20) {
-            Write-Host "  ... and $($allVersions.Count - 20) more total versions" -ForegroundColor DarkGray
-        }
-        
-        # Find closest match
-        $closestVersion = Find-ClosestVersion -RequestedVersion $RequestedVersion -AvailableVersions $allVersions
-        
-        return $closestVersion
+        return $allVersions
         
     }
     catch {
         Write-Host "Error fetching version list: $_" -ForegroundColor Red
-        return $null
+        return @()
     }
 }
 
@@ -102,19 +96,35 @@ function Get-VersionsFromReleasesPage {
         
         # Extract ALL version patterns - PHP uses different VC versions over time
         $versionPatterns = @(
+            # PHP 8.x patterns
             'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-vs17-x64\.zip',
             'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-vs16-x64\.zip',
-            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-vs15-x64\.zip',
             'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-Win32-vs17-x64\.zip',
             'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-Win32-vs16-x64\.zip',
-            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-Win32-vs15-x64\.zip',
-            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)\.zip'  # Generic fallback
+            
+            # PHP 7.x patterns (VC15, VC14)
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-vc15-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-Win32-vc15-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-vc14-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-Win32-vc14-x64\.zip',
+            
+            # Older PHP 5.x patterns (VC11, VC9)
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-VC11-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-Win32-VC11-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-VC9-x64\.zip',
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-Win32-VC9-x64\.zip',
+            
+            # Generic fallback
+            'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)\.zip'
         )
         
         foreach ($pattern in $versionPatterns) {
             $matches = [regex]::Matches($page.Content, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
             foreach ($match in $matches) {
-                $versions += $match.Groups[1].Value
+                $version = $match.Groups[1].Value
+                # Clean up any remaining file extensions in version string
+                $version = $version -replace '\.zip$', ''
+                $versions += $version
             }
         }
         
@@ -125,6 +135,123 @@ function Get-VersionsFromReleasesPage {
         Write-Host "  Warning: Could not access $Url" -ForegroundColor DarkYellow
         return @()
     }
+}
+
+function Show-AvailableReleases {
+    param(
+        [string]$RequestedVersion
+    )
+    
+    # Extract major version from requested version
+    $majorVersion = $RequestedVersion -replace '^(\d+).*$', '$1'
+    
+    Write-Host "`nSearching for available PHP $majorVersion releases..." -ForegroundColor Yellow
+    
+    $availableVersions = Get-AvailablePHPVersions -MajorVersionFilter $majorVersion
+    
+    if ($availableVersions.Count -eq 0) {
+        Write-Host "No PHP $majorVersion releases found." -ForegroundColor Red
+        Write-Host "`nAvailable major PHP versions:" -ForegroundColor Cyan
+        
+        # Show all available major versions
+        $allVersions = Get-AvailablePHPVersions
+        $majorVersions = $allVersions | ForEach-Object { $_ -replace '^(\d+).*$', '$1' } | Sort-Object -Unique -Descending
+        
+        foreach ($ver in $majorVersions) {
+            $count = ($allVersions | Where-Object { $_ -like "$ver.*" }).Count
+            Write-Host "  PHP $ver ($count releases available)"
+        }
+        return $null
+    }
+    
+    # Display releases for the requested major version
+    Write-Host "`nAvailable PHP $majorVersion releases (latest first):" -ForegroundColor Green
+    
+    $groupedVersions = $availableVersions | Group-Object { $_ -replace '^(\d+\.\d+).*$', '$1' }
+    
+    foreach ($group in $groupedVersions) {
+        $latestMinor = $group.Group | Select-Object -First 1
+        Write-Host "`n  $($group.Name) series:" -ForegroundColor Cyan
+        $group.Group | Select-Object -First 10 | ForEach-Object {
+            $isLatest = ($_ -eq $latestMinor)
+            $latestMarker = if ($isLatest) { " [LATEST]" } else { "" }
+            Write-Host "    - $_$latestMarker"
+        }
+        
+        if ($group.Group.Count -gt 10) {
+            Write-Host "    ... and $($group.Group.Count - 10) more" -ForegroundColor DarkGray
+        }
+    }
+    
+    # Suggest the latest stable release in this major version
+    $latestStable = $availableVersions | Where-Object { $_ -notmatch 'RC|alpha|beta' } | Select-Object -First 1
+    
+    if ($latestStable) {
+        Write-Host "`nSuggested version: $latestStable" -ForegroundColor Yellow
+        Write-Host "Run: pvm install $latestStable" -ForegroundColor Green
+    }
+    else {
+        $latestOverall = $availableVersions | Select-Object -First 1
+        if ($latestOverall) {
+            Write-Host "`nLatest available: $latestOverall" -ForegroundColor Yellow
+            Write-Host "Run: pvm install $latestOverall" -ForegroundColor Green
+        }
+    }
+    
+    return $latestStable
+}
+
+function Get-PHPUrlPatterns {
+    param(
+        [string]$version
+    )
+    
+    # Parse the major version
+    $majorVersion = [int]($version -split '\.')[0]
+    
+    $patterns = @()
+    
+    if ($majorVersion -ge 8) {
+        # PHP 8.x uses VS17/VS16
+        $patterns = @(
+            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-vs17-x64.zip",
+            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-vs16-x64.zip",
+            "https://windows.php.net/downloads/releases/php-$version-Win32-vs17-x64.zip",
+            "https://windows.php.net/downloads/releases/php-$version-Win32-vs16-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-vs17-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-vs16-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-Win32-vs17-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-Win32-vs16-x64.zip"
+        )
+    }
+    elseif ($majorVersion -ge 7) {
+        # PHP 7.x uses VC15/VC14
+        $patterns = @(
+            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-vc15-x64.zip",
+            "https://windows.php.net/downloads/releases/php-$version-Win32-vc15-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-vc15-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-Win32-vc15-x64.zip",
+            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-vc14-x64.zip",
+            "https://windows.php.net/downloads/releases/php-$version-Win32-vc14-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-vc14-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-Win32-vc14-x64.zip"
+        )
+    }
+    else {
+        # PHP 5.x uses VC11/VC9
+        $patterns = @(
+            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-VC11-x64.zip",
+            "https://windows.php.net/downloads/releases/php-$version-Win32-VC11-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-VC11-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-Win32-VC11-x64.zip",
+            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-VC9-x64.zip",
+            "https://windows.php.net/downloads/releases/php-$version-Win32-VC9-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-VC9-x64.zip",
+            "https://windows.php.net/downloads/releases/archives/php-$version-Win32-VC9-x64.zip"
+        )
+    }
+    
+    return $patterns
 }
 
 function Find-ClosestVersion {
@@ -190,161 +317,95 @@ function Find-ClosestVersion {
     return $bestMatch
 }
 
-function Get-VersionsFromURL {
-    param(
-        [string]$Url
-    )
-    
-    try {
-        $page = Invoke-WebRequest -Uri $Url -UseBasicParsing -ErrorAction Stop
-        
-        # Extract version numbers from zip file links
-        # Looking for patterns like: php-8.3.1-nts-Win32-vs16-x64.zip
-        # or: php-8.3.1-nts-Win32-vs16-x64.zip
-        $versionPattern = 'php-(\d+\.\d+\.\d+(?:-(?:RC\d+|alpha\d+|beta\d+))?)-nts-Win32-vs16-x64\.zip'
-        $matches = [regex]::Matches($page.Content, $versionPattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-        
-        $versions = @()
-        foreach ($match in $matches) {
-            $versions += $match.Groups[1].Value
-        }
-        
-        return $versions | Sort-Object -Unique -Descending
-        
-    }
-    catch {
-        Write-Host "  Warning: Could not access $Url" -ForegroundColor DarkYellow
-        return @()
-    }
-}
 
-
-function Normalize-VersionString {
+function Set-PhpExtensionState {
     param(
-        [string]$Version
-    )
-    
-    # Remove RC/alpha/beta suffixes for comparison
-    # e.g., "8.3.0-RC1" -> "8.3.0"
-    $normalized = $Version -replace '-(RC\d+|alpha\d+|beta\d+).*$', ''
-    
-    # Ensure we have at least 3 parts (major.minor.patch)
-    $parts = $normalized -split '\.'
-    
-    while ($parts.Count -lt 3) {
-        $parts += "0"
-    }
-    
-    return $parts -join '.'
-}
+        [Parameter(Mandatory)]
+        [string]$Extension,
 
-function Enable-Extension {
-    param(
-        [string]$ext,
-        [string]$version = "current"
+        [Parameter(Mandatory)]
+        [bool]$Enable,
+
+        [string]$Version = "current"
     )
-    if (-not $version) {
-        $version = "current"
+
+    $paths = @()
+
+    if (-not $Version) {
+        $Version = "current"
     }
-    # Handle 'current' keyword
-    if ($version -eq "current") {
-        $currentVersion = Get-CurrentVersion
-        if (-not $currentVersion) {
+
+    if ($Version -eq "current") {
+        $resolvedVersion = (Get-CurrentVersion).Trim()
+
+        if ([string]::IsNullOrWhiteSpace($resolvedVersion)) {
             Write-Host "No active PHP version. Use 'pvm use <version>' first."
             return
         }
-        $version = $currentVersion
-        Write-Host "Targeting current active version: $version"
+
+        $paths += "C:\phpvm\versions\$resolvedVersion\php.ini"
+    }
+    else {
+        $paths += "C:\phpvm\versions\$Version\php.ini"
     }
 
-    $iniPath = "C:\phpvm\versions\$version\php.ini";
-
-    if ($version -eq "current") {
-        $iniPath = "C:\phpvm\versions\$version\php.ini";
-    }
-    
-    if (-not (Test-Path $iniPath)) {
-        Write-Host "PHP version $version not found or php.ini doesn't exist"
-        return
-    }
-
-    $content = Get-Content $iniPath
-    $found = $false
-
-    $newContent = $content | ForEach-Object {
-        if ($_ -match "^\s*;?\s*extension\s*=\s*$ext\s*$") {
-            $found = $true
-            "extension=$ext"
+    foreach ($iniPath in $paths) {
+        if (-not (Test-Path $iniPath)) {
+            Write-Host "php.ini not found: $iniPath"
+            continue
         }
-        else {
-            $_
-        }
-    }
 
-    # If extension is not found, add it at the end
-    if (-not $found) {
-        $newContent += "extension=$ext"
-    }
+        $content = Get-Content $iniPath
+        $found = $false
 
-    $newContent | Set-Content $iniPath
-    Write-Host "Enabled $ext for PHP $version"
-}
+        $newContent = $content | ForEach-Object {
+            # match enabled or commented extension
+            if ($_ -match "^\s*;?\s*extension\s*=\s*['""]?$Extension(\.dll)?['""]?") {
+                $found = $true
 
-
-
-    
-function Disable-Extension {
-    param(
-        [string]$ext,
-        [string]$version = "current"
-    )
-
-    if (-not $version) {
-        $version = "current"
-    }
-    
-    # Handle 'current' keyword
-    if ($version -eq "current") {
-        $currentVersion = Get-CurrentVersion
-        if (-not $currentVersion) {
-            Write-Host "No active PHP version. Use 'pvm use <version>' first."
-            return
-        }
-        $version = $currentVersion
-        Write-Host "Targeting current active version: $version"
-    }
-
-    $iniPath = "C:\phpvm\versions\$version\php.ini";
-
-    if ($version -eq "current") {
-        $iniPath = "C:\phpvm\versions\$version\php.ini";
-    }
-    
-    if (-not (Test-Path $iniPath)) {
-        Write-Host "PHP version $version not found or php.ini doesn't exist"
-        return
-    }
-
-    $content = Get-Content $iniPath
-
-    $newContent = $content | ForEach-Object {
-        if ($_ -match "^\s*;?\s*extension\s*=\s*$ext\s*$") {
-            # Comment out the extension
-            if ($_ -match "^extension\s*=\s*$ext") {
-                ";extension=$ext"
+                if ($Enable) {
+                    "extension=$Extension"
+                }
+                else {
+                    ";extension=$Extension"
+                }
             }
             else {
                 $_
             }
         }
-        else {
-            $_
-        }
-    }
 
-    $newContent | Set-Content $iniPath
-    Write-Host "Disabled $ext for PHP $version"
+        if ($Enable -and -not $found) {
+            $newContent += "extension=$Extension"
+        }
+
+        $newContent | Set-Content $iniPath -Encoding UTF8
+
+        $state = if ($Enable) { "Enabled" } else { "Disabled" }
+        Write-Host "$state $Extension in $iniPath"
+    }
 }
+
+function Enable-Extension {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ext,
+        [string]$version = "current"
+    )
+
+    Set-PhpExtensionState -Extension $ext -Enable $true -Version $version
+}
+
+function Disable-Extension {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ext,
+        [string]$version = "current"
+    )
+
+    Set-PhpExtensionState -Extension $ext -Enable $false -Version $version
+}
+
 
 if (-not $command) { usage }
 
@@ -361,12 +422,8 @@ switch ($command) {
 
         $zip = "$env:TEMP\php-$version.zip"
     
-        # Try multiple URL patterns since PHP uses different VC versions
-        $urlPatterns = @(
-            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-vs17-x64.zip",
-            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-vs16-x64.zip",
-            "https://windows.php.net/downloads/releases/php-$version-nts-Win32-vs15-x64.zip"
-        )
+        # Get appropriate URL patterns based on PHP version
+        $urlPatterns = Get-PHPUrlPatterns -version $version
     
         Write-Host "Downloading PHP $version..."
     
@@ -374,56 +431,52 @@ switch ($command) {
         foreach ($url in $urlPatterns) {
             try {
                 Write-Host "Trying: $url" -ForegroundColor DarkGray
-                Invoke-WebRequest -Uri $url -OutFile $zip
+                Invoke-WebRequest -Uri $url -OutFile $zip -TimeoutSec 30
                 $downloadSuccess = $true
                 Write-Host "Download successful!" -ForegroundColor Green
                 break
             }
             catch {
                 # Continue to next pattern
+                Write-Host "  Not found: $([System.Net.HttpStatusCode] $_.Exception.Response.StatusCode)" -ForegroundColor DarkGray
                 continue
             }
         }
     
         if (-not $downloadSuccess) {
-            Write-Host "Release not found in main releases, trying archive..."
-        
-            # Try archive with multiple patterns
-            $urlPatterns = @(
-                "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-vs17-x64.zip",
-                "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-vs16-x64.zip",
-                "https://windows.php.net/downloads/releases/archives/php-$version-nts-Win32-vs15-x64.zip"
-            )
-        
-            $archiveSuccess = $false
-            foreach ($url in $urlPatterns) {
-                try {
-                    Write-Host "Trying archive: $url" -ForegroundColor DarkGray
-                    Invoke-WebRequest -Uri $url -OutFile $zip
-                    $archiveSuccess = $true
-                    Write-Host "Download successful from archive!" -ForegroundColor Green
-                    break
-                }
-                catch {
-                    continue
-                }
-            }
-        
-            if (-not $archiveSuccess) {
-                Write-Host "`nPHP version $version not found!"
+            Write-Host "`nPHP version $version not found!" -ForegroundColor Red
             
-                # Get available versions and suggest closest match
-                $suggestedVersion = Get-ClosestPHPVersion -RequestedVersion $version
-                if ($suggestedVersion) {
-                    Write-Host "Did you mean: PHP $suggestedVersion ?"
-                    Write-Host "Run: pvm install $suggestedVersion"
+            # Check if user requested just a major version (like "8", "7", "5")
+            $isMajorVersion = ($version -match '^\d+$')
+            
+            if ($isMajorVersion) {
+                # User requested something like "pvm install 8" or "pvm install 7"
+                Show-AvailableReleases -RequestedVersion $version
+            }
+            else {
+                # Try to find closest match
+                $allVersions = Get-AvailablePHPVersions
+                if ($allVersions.Count -gt 0) {
+                    $suggestedVersion = Find-ClosestVersion -RequestedVersion $version -AvailableVersions $allVersions
+                    
+                    Write-Host "`nDid you mean: PHP $suggestedVersion ?" -ForegroundColor Yellow
+                    Write-Host "Run: pvm install $suggestedVersion" -ForegroundColor Green
+                    
+                    # Also show releases for the same major version
+                    $requestedMajor = $version -replace '^(\d+).*$', '$1'
+                    $suggestedMajor = $suggestedVersion -replace '^(\d+).*$', '$1'
+                    
+                    if ($requestedMajor -ne $suggestedMajor) {
+                        Write-Host "`nAlso showing PHP $requestedMajor releases:" -ForegroundColor Cyan
+                        Show-AvailableReleases -RequestedVersion $requestedMajor
+                    }
                 }
                 else {
                     Write-Host "No PHP versions found. Check available versions at:"
                     Write-Host "https://windows.php.net/download/"
                 }
-                exit 1
             }
+            exit 1
         }
 
         Write-Host "Extracting..."
@@ -446,8 +499,6 @@ switch ($command) {
 
         Write-Host "Installed PHP $version"
     }
-
-
 
     "uninstall" {
         $version = $arg1
@@ -496,6 +547,13 @@ switch ($command) {
         Get-ChildItem $VERSIONS -Directory | ForEach-Object {
             Write-Host " - $($_.Name)"
         }
+        
+        # Optionally show available versions too
+        Write-Host "`nTo see available PHP versions for installation, use:"
+        Write-Host "  pvm install <major-version>" -ForegroundColor Cyan
+        Write-Host "  Example: pvm install 8  (to see PHP 8 releases)" -ForegroundColor Cyan
+        Write-Host "           pvm install 7  (to see PHP 7 releases)" -ForegroundColor Cyan
+        Write-Host "           pvm install 5  (to see PHP 5 releases)" -ForegroundColor Cyan
     }
 
     "current" {
