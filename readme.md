@@ -1,6 +1,15 @@
 
 # PHP Version Manager (PVM) for Windows
+```powershell
+  pvm install <version>
+  pvm uninstall <version>
+  pvm use <version>
+  pvm list
+  pvm current
+  pvm ext enable <extension> [version]     (version defaults to current)
+  pvm ext disable <extension> [version]    (version defaults to current)
 
+```
 A simple PHP Version Manager for Windows (global), allowing you to:
 
 - Install multiple PHP versions
