@@ -532,6 +532,7 @@ switch ($command) {
         $downloadSuccess = $false
         foreach ($url in $urlPatterns) {
             try {
+                Show-Loader
                 # Write-Host "Trying: $url" -ForegroundColor DarkGray
                 Invoke-WebRequest -Uri $url -OutFile $zip -TimeoutSec 30
                 $downloadSuccess = $true
@@ -540,7 +541,7 @@ switch ($command) {
             }
             catch {
                 # Continue to next pattern
-                Write-Host "  Not found: $([System.Net.HttpStatusCode] $_.Exception.Response.StatusCode)" -ForegroundColor DarkGray
+                # Write-Host "  Not found: $([System.Net.HttpStatusCode] $_.Exception.Response.StatusCode)" -ForegroundColor DarkGray
                 continue
             }
         }
