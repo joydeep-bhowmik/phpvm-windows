@@ -6,6 +6,7 @@
   pvm use <version>
   pvm list
   pvm current
+  pvm ext list [version]            List all available extensions (version defaults to current)
   pvm ext enable <extension> [version]     (version defaults to current)
   pvm ext disable <extension> [version]    (version defaults to current)
 

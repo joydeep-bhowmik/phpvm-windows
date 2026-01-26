@@ -23,6 +23,7 @@ Commands:
   pvm use <version>
   pvm list
   pvm current
+  pvm ext list [version]            List all available extensions (version defaults to current)
   pvm ext enable <extension> [version]     (version defaults to current)
   pvm ext disable <extension> [version]    (version defaults to current)
 "@
@@ -407,6 +408,107 @@ function Disable-Extension {
 }
 
 
+function List-Extensions {
+    param(
+        [string]$version = "current"
+    )
+
+    if (-not $version) {
+        $version = "current"
+    }
+
+    # Resolve the version to a path
+    if ($version -eq "current") {
+        $resolvedVersion = (Get-CurrentVersion).Trim()
+        
+        if ([string]::IsNullOrWhiteSpace($resolvedVersion)) {
+            Write-Host "No active PHP version. Use 'pvm use <version>' first."
+            return
+        }
+        
+        $phpPath = "C:\phpvm\versions\$resolvedVersion"
+    }
+    else {
+        $phpPath = "C:\phpvm\versions\$version"
+    }
+
+    if (-not (Test-Path $phpPath)) {
+        Write-Host "PHP version $version not installed."
+        return
+    }
+
+    $phpExe = "$phpPath\php.exe"
+    $phpIni = "$phpPath\php.ini"
+    
+    if (-not (Test-Path $phpExe)) {
+        Write-Host "php.exe not found at: $phpExe"
+        return
+    }
+
+    Write-Host "`nExtensions for PHP $version :" -ForegroundColor Cyan
+    Write-Host "===============================" -ForegroundColor Cyan
+
+    # Get extensions directory
+    $extDir = "$phpPath\ext"
+    $extensions = @()
+    
+    if (Test-Path $extDir) {
+        $dllFiles = Get-ChildItem -Path $extDir -Filter "*.dll" -File
+        
+        foreach ($dll in $dllFiles) {
+            $extName = $dll.BaseName
+            
+            # Get extension status from php.ini
+            $isEnabled = $false
+            if (Test-Path $phpIni) {
+                $iniContent = Get-Content $phpIni
+                foreach ($line in $iniContent) {
+                    if ($line -match "^\s*extension\s*=\s*['""]?$extName(\.dll)?['""]?") {
+                        $isEnabled = $true
+                        break
+                    }
+                }
+            }
+            
+            $status = if ($isEnabled) { "ENABLED" } else { "disabled" }
+            $statusColor = if ($isEnabled) { "Green" } else { "DarkGray" }
+            
+            $extensions += [PSCustomObject]@{
+                Name        = $extName
+                Status      = $status
+                StatusColor = $statusColor
+                File        = $dll.Name
+            }
+        }
+    }
+
+    if ($extensions.Count -eq 0) {
+        Write-Host "No extensions found in $extDir" -ForegroundColor Yellow
+        return
+    }
+
+    # Sort extensions by name and display
+    $extensions = $extensions | Sort-Object Name
+    
+    Write-Host "`nTotal extensions found: $($extensions.Count)" -ForegroundColor Yellow
+    Write-Host "Enabled: $($extensions | Where-Object { $_.Status -eq 'ENABLED' } | Measure-Object | Select-Object -ExpandProperty Count)"
+    Write-Host "Disabled: $($extensions | Where-Object { $_.Status -eq 'disabled' } | Measure-Object | Select-Object -ExpandProperty Count)"
+    
+    Write-Host "`nExtension List:" -ForegroundColor Cyan
+    Write-Host "--------------"
+    
+    foreach ($ext in $extensions) {
+        Write-Host "  [$($ext.Status)]" -NoNewline -ForegroundColor $ext.StatusColor
+        Write-Host " $($ext.Name)"
+    }
+
+    # Show how to enable/disable
+    Write-Host "`nUsage:" -ForegroundColor Cyan
+    Write-Host "  pvm ext enable <name> [$version]" -ForegroundColor Green
+    Write-Host "  pvm ext disable <name> [$version]" -ForegroundColor Green
+    Write-Host "`nExample: pvm ext enable curl $version" -ForegroundColor Gray
+}
+
 if (-not $command) { usage }
 
 switch ($command) {
@@ -548,31 +650,38 @@ switch ($command) {
         $ext = $arg2
         $version = $arg3
         
-        if ($action -eq "enable") {
-            if (-not $ext) {
-                Write-Host "Usage: pvm ext enable <extension> [version]"
-                Write-Host "       Version is optional and defaults to current active version"
-                exit
+        switch ($action) {
+            "list" {
+                List-Extensions -version $version
             }
-            Enable-Extension -ext $ext -version $version
-        }
-        elseif ($action -eq "disable") {
-            if (-not $ext) {
-                Write-Host "Usage: pvm ext disable <extension> [version]"
-                Write-Host "       Version is optional and defaults to current active version"
-                exit
+            "enable" {
+                if (-not $ext) {
+                    Write-Host "Usage: pvm ext enable <extension> [version]"
+                    Write-Host "       Version is optional and defaults to current active version"
+                    exit
+                }
+                Enable-Extension -ext $ext -version $version
             }
-            Disable-Extension -ext $ext -version $version
-        }
-        else {
-            Write-Host "Usage: pvm ext enable <extension> [version]"
-            Write-Host "       pvm ext disable <extension> [version]"
-            Write-Host ""
-            Write-Host "Examples:"
-            Write-Host "  pvm ext enable curl              # Enable for current version"
-            Write-Host "  pvm ext disable xdebug           # Disable for current version"
-            Write-Host "  pvm ext enable mbstring 8.2.15   # Enable for specific version"
-            Write-Host "  pvm ext disable opcache 8.3.2    # Disable for specific version"
+            "disable" {
+                if (-not $ext) {
+                    Write-Host "Usage: pvm ext disable <extension> [version]"
+                    Write-Host "       Version is optional and defaults to current active version"
+                    exit
+                }
+                Disable-Extension -ext $ext -version $version
+            }
+            default {
+                Write-Host "Usage: pvm ext list [version]"
+                Write-Host "       pvm ext enable <extension> [version]"
+                Write-Host "       pvm ext disable <extension> [version]"
+                Write-Host ""
+                Write-Host "Examples:"
+                Write-Host "  pvm ext list                    # List extensions for current version"
+                Write-Host "  pvm ext list 8.2.15            # List extensions for specific version"
+                Write-Host "  pvm ext enable curl            # Enable for current version"
+                Write-Host "  pvm ext disable xdebug         # Disable for current version"
+                Write-Host "  pvm ext enable mbstring 8.2.15 # Enable for specific version"
+            }
         }
     }
 
