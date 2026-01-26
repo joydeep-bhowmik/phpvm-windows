@@ -1,2 +1,11 @@
-/php
-/versions
+# Installed PHP binaries
+/php/
+/versions/
+
+# Temp files
+*.zip
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
