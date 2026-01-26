@@ -652,7 +652,7 @@ switch ($command) {
         
         switch ($action) {
             "list" {
-                List-Extensions -version $version
+                List-Extensions -version $arg2
             }
             "enable" {
                 if (-not $ext) {
