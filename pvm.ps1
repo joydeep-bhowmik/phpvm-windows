@@ -532,7 +532,6 @@ switch ($command) {
         $downloadSuccess = $false
         foreach ($url in $urlPatterns) {
             try {
-                Show-Loader
                 # Write-Host "Trying: $url" -ForegroundColor DarkGray
                 Invoke-WebRequest -Uri $url -OutFile $zip -TimeoutSec 30
                 $downloadSuccess = $true
