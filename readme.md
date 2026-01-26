@@ -35,17 +35,16 @@ A simple PHP Version Manager for Windows (global), allowing you to:
 
 ## 📁 Installation
 
-### 1. Clone this repository
-
-```powershell
-git clone https://github.com/joydeep-bhowmik/phpvm-windows.git
-```
-
-### 2. Move files to `C:\phpvm`
-
+### 1. make a folder  `C:\phpvm`
 ```powershell
 mkdir C:\phpvm
-copy .\phpvm-windows\* C:\phpvm\ /y
+```
+
+
+### 2. clone the repo
+
+```powershell
+git clone https://github.com/joydeep-bhowmik/phpvm-windows.git .
 ```
 
 ### 3. Rename the script (optional but recommended)
