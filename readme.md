@@ -81,7 +81,8 @@ C:\phpvm\php
 
 Close all PowerShell / CMD windows and open a new one.
 
-### 4 `;extension_dir = "ext"` uncomment this if your php looking for C:\php\ext by default
+### 4 ;extension_dir = "ext" 
+uncomment this in php.ini if your php looking for C:\php\ext by default
 ---
 
 ## 🎯 Usage
