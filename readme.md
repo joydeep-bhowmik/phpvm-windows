@@ -334,19 +334,20 @@ pvm list
 ## Enable Genral / Laravel extenstions
 
 ```powershell
-php-ext-enable ctype
-php-ext-enable curl
-php-ext-enable dom
-php-ext-enable fileinfo
-php-ext-enable filter
-php-ext-enable hash
-php-ext-enable mbstring
-php-ext-enable openssl
-php-ext-enable pcre
-php-ext-enable pdo
-php-ext-enable session
-php-ext-enable tokenizer
-php-ext-enable xml
+pvm ext enable ctype
+pvm ext enable curl
+pvm ext enable dom
+pvm ext enable fileinfo
+pvm ext enable filter
+pvm ext enable hash
+pvm ext enable mbstring
+pvm ext enable openssl
+pvm ext enable pcre
+pvm ext enable pdo
+pvm ext enable session
+pvm ext enable tokenizer
+pvm ext enable xml
+
 ```
 
 ## 🔄 Updating
