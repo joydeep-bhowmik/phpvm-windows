@@ -266,7 +266,7 @@ C:\phpvm\php
 4. Check PHP error log: `C:\phpvm\versions\<version>\error_log`
 5. Run `php -m` to see loaded extensions
 6. Some extensions require thread-safe (TS) versions, ensure you're using correct build
-7. ;extension_dir = "ext" uncomment this if your php looking for C:\php\ext by default
+7. `;extension_dir = "ext"` uncomment this if your php looking for C:\php\ext by default
 
 ### Permission errors
 
