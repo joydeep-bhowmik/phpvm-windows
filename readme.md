@@ -211,6 +211,119 @@ Most PHP extensions require corresponding DLL files in the `ext` directory. PVM 
 - If an extension DLL is missing, it won't load even if enabled in php.ini
 - Some extensions may need additional DLL dependencies in the main PHP directory
 
+### PHP Startup Warning: Unable to Load OpenSSL (Looking for C:\php\ext) 
+Good instinct. This is exactly the kind of painful, real-world issue that belongs in a README.
+
+Here’s a **clean, copy-paste-ready README section** with a strong title and a precise solution.
+
+---
+
+## 🛑 PHP Startup Warning: Unable to Load OpenSSL (Looking for C:\php\ext)
+
+Running:
+
+```
+php -v
+```
+
+Shows:
+
+```
+PHP Warning: PHP Startup: Unable to load dynamic library 'openssl'
+(tried: C:\php\ext\openssl, C:\php\ext\php_openssl.dll)
+
+PHP Warning: PHP Startup: Unable to load dynamic library 'php_openssl'
+(tried: C:\php\ext\php_openssl, C:\php\ext\php_php_openssl.dll)
+```
+
+Even though PHP is installed in:
+
+```
+C:\phpvm\php
+```
+
+---
+
+### Root Cause
+
+PHP is loading the correct `php.ini` but **`extension_dir` is not explicitly set**.
+On Windows, this causes PHP to fall back to an old registry value that still points to:
+
+```
+C:\php\ext
+```
+
+So PHP looks in the wrong folder for extensions.
+
+---
+
+### Solution
+
+1. Open your loaded `php.ini`:
+
+```
+php --ini
+```
+
+Open the file shown under **Loaded Configuration File**
+(usually `C:\phpvm\php\php.ini`).
+
+---
+
+2. Find this line (it is usually commented):
+
+```ini
+;extension_dir = "ext"
+```
+
+Replace it with:
+
+```ini
+extension_dir="C:\phpvm\php\ext"
+```
+
+---
+
+3. Make sure only **one** OpenSSL extension is enabled:
+
+```ini
+extension=openssl
+```
+
+And ensure this is **disabled or removed**:
+
+```ini
+;extension=php_openssl
+```
+
+---
+
+4. Save the file and restart the terminal.
+
+Run:
+
+```
+php -v
+```
+
+---
+
+### Expected Result
+
+```
+PHP 8.x.x (cli)
+(no OpenSSL warnings)
+```
+
+---
+
+### Notes
+
+* Confirm this file exists:
+
+```
+C:\phpvm\php\ext\php_openssl.dll
+```
 ### Version Parameter is Optional
 
 When using `pvm ext enable` or `pvm ext disable`, the version parameter is optional:
