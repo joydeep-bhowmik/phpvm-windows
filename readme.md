@@ -1,5 +1,5 @@
 
-# PHP Version Manager (PVM) for Windows [ work in progress]
+# PHP Version Manager (PVM) for Windows 
 ```powershell
   pvm install <version>
   pvm uninstall <version>
