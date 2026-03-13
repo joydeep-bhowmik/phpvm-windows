@@ -21,7 +21,7 @@ A simple PHP Version Manager for Windows (global), allowing you to:
 
 ---
 
-## 🚀 Features
+##  Features
 
 ✔ Install PHP versions (official Windows binaries)  
 ✔ Switch PHP version with one command  
@@ -33,7 +33,7 @@ A simple PHP Version Manager for Windows (global), allowing you to:
 
 ---
 
-## 📁 Installation
+##  Installation
 
 ### 1. make a folder  `C:\phpvm`
 ```powershell
@@ -55,7 +55,7 @@ ren C:\phpvm\pvm.ps1 pvm
 
 ---
 
-## ✅ Add to PATH
+## Add to PATH
 
 ### 1. Open Environment Variables
 
@@ -87,7 +87,7 @@ uncomment this in php.ini if your php looking for C:\php\ext by default
 
 ---
 
-## 🎯 Usage
+##  Usage
 
 ### Install a PHP version
 
@@ -141,7 +141,7 @@ pvm ext disable opcache 8.3.2
 
 ---
 
-## 📋 Common PHP Extensions
+##  Common PHP Extensions
 
 Here are some commonly used extensions you can enable:
 
@@ -166,7 +166,7 @@ Here are some commonly used extensions you can enable:
 
 ---
 
-## ⚙️ How Extensions Work
+##  How Extensions Work
 
 PVM modifies the `php.ini` file for the specified PHP version:
 
@@ -187,7 +187,7 @@ extension=curl
 
 ---
 
-## ⚠️ Important Notes
+## Important Notes
 
 ### Herd / Laragon / XAMPP conflict
 
@@ -226,7 +226,7 @@ When using `pvm ext enable` or `pvm ext disable`, the version parameter is optio
 
 ---
 
-## 🧩 How it works
+## How it works
 
 * PHP versions are stored in:
 
@@ -245,7 +245,7 @@ C:\phpvm\php
 
 ---
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 ### `pvm` not recognized
 
@@ -293,7 +293,7 @@ pvm ext enable curl
 
 ---
 
-## 📌 Example Workflow
+## Example Workflow
 
 ```powershell
 # Install PHP 8.2.15
@@ -354,7 +354,7 @@ pvm ext enable xml
 
 ```
 
-## 🔄 Updating
+## Updating
 
 To update PVM to the latest version:
 
@@ -365,13 +365,13 @@ git pull origin main
 
 ---
 
-## 📄 License
+## License
 
 MIT License
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
@@ -383,7 +383,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-## ⭐ Support
+## Support
 
 If you find this tool useful, please give it a star on GitHub!
 
